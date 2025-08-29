@@ -28,6 +28,7 @@ import { applyTheme, stumpDark, themeToCss } from './themes'
 
 import('../../../vendor/foliate-js/view.js')
 import type { View } from '../../../vendor/foliate-js/view.js'
+import { current } from 'immer'
 
 /** The props for the FoliateJsReader component */
 type FoliateJsReaderProps = {
@@ -66,7 +67,20 @@ export default function FoliateJsReader({ id, isIncognito }: FoliateJsReaderProp
 	})
 	const targetCfi = ebook.media?.readProgress?.epubcfi
 
-	// Thing 2
+	const updateProgress = useCallback(
+		(input: EpubProgressInput) => {
+			if (isIncognito) return
+
+			mutate({
+				id: ebook.media?.id || '',
+				input: {
+					epub: input,
+				},
+			})
+		},
+		[mutate, ebook, isIncognito],
+	)
+	// Things end
 
 	// Book Data
 	const [existingBookmarks, setExistingBookmarks] = useState<Record<string, Bookmark>>({})
@@ -129,8 +143,16 @@ export default function FoliateJsReader({ id, isIncognito }: FoliateJsReaderProp
 
 		// Save position
 		const fraction = e.detail.fraction
+		const currentCfi = e.detail.cfi
 		setFraction(fraction)
-		setCurrentCfi(e.detail.cfi)
+		setCurrentCfi(currentCfi)
+
+		// Update Progress
+		updateProgress({
+			epubcfi: currentCfi,
+			percentage: fraction,
+			isComplete: fraction > 0.95,
+		})
 	}
 
 	// Load in the book
@@ -169,24 +191,12 @@ export default function FoliateJsReader({ id, isIncognito }: FoliateJsReaderProp
 				view.close()
 			}
 		}
-	}, [view, ebook])
+	}, [view, id, sdk])
 
 	// Dynamic style setting
 	useEffect(() => {
 		setStyles(view)
 	}, [view, theme, bookPreferences])
-
-	// Update Progress
-	useEffect(() => {
-		if (!currentCfi || !ebook) return
-
-		sdk.epub.updateProgress({
-			id: ebook.media,
-			epubcfi: currentCfi,
-			is_complete: fraction > 0.95,
-			percentage: fraction,
-		})
-	}, [currentCfi])
 
 	// Controls
 	const onPaginateForward = useCallback(() => view?.goRight(), [view])

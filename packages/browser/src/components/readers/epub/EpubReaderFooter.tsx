@@ -22,25 +22,16 @@ export default function EpubReaderFooter() {
 	const { jumpToSection } = useEpubReaderControls()
 	const { bookMeta } = useEpubReaderContext().readerMeta
 
-	const visiblePages = (bookMeta?.chapter.currentPage ?? []).filter(Boolean)
-	let pagesVisible = visiblePages.length
-	// if all pages visible are the same page then we're looking at one page at a time
-	if (visiblePages.every((page) => page === visiblePages[0])) {
-		pagesVisible = 1
-	}
-
 	const chapterPageCount = bookMeta?.chapter.totalPages || 1
+	const totalPages = bookMeta?.chapter.totalPages
+	const currentPage = bookMeta?.chapter.currentPage
+
 	const chapterName = bookMeta?.chapter.name || ''
 
 	// If we don't have the first page or total pages, we can't show the controls for now
-	if (!pagesVisible) {
-		return null
-	}
+	if (!currentPage || !totalPages) return null
 
-	const currentPage = visiblePages[0] || 1
-	const virtualPage = Math.ceil(currentPage / pagesVisible)
-	const virtualPageCount = Math.ceil(chapterPageCount / pagesVisible)
-	const chapterProgress = Math.ceil((virtualPage / virtualPageCount) * 100)
+	const chapterProgress = Math.ceil((currentPage / totalPages) * 100)
 	const currentSectionIndex = bookMeta?.chapter.sectionSpineIndex ?? -1
 	const sectionWidths = getSectionWidths(bookMeta?.sectionLengths || {})
 
@@ -54,7 +45,7 @@ export default function EpubReaderFooter() {
 				<div className="z-50 flex flex-1 flex-col gap-y-1">
 					<div>
 						<Text size="xs" variant="muted">
-							{chapterName} ({virtualPage}/{virtualPageCount})
+							{chapterName} ({currentPage}/{totalPages})
 						</Text>
 					</div>
 

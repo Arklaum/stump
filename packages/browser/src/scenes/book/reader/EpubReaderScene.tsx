@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 
-import EpubJsReader from '@/components/readers/epub/EpubJsReader'
+import EpubJsReader from '@/components/readers/epub/FoliateJsReader'
 
 import paths from '../../../paths'
 

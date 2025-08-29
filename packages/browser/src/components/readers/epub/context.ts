@@ -19,7 +19,7 @@ export type EpubReaderChapterMeta = {
 	 * The chapter's current page. If the viewport is large enough, two pages will
 	 * be displayed, so this will be an array of two numbers.
 	 */
-	currentPage?: [number | undefined, number | undefined]
+	currentPage?: number | undefined
 	/**
 	 * The visible cfi strings for the first and last visible pages.
 	 */

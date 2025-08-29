@@ -5,6 +5,23 @@ export interface EpubTheme {
 	[tag: string]: object
 }
 
+export const themeToCss = (theme: EpubTheme) => {
+	return Object.entries(theme)
+		.map(([selector, rules]) => {
+			const ruleString = Object.entries(rules)
+				.map(([prop, val]) => {
+					// Add 'important' to the 'font-size' property.
+					if (['font-size', 'line-height', 'font-family'].includes(prop)) {
+						return `${prop}: ${val} !important;`
+					}
+					return `${prop}:${val};`
+				})
+				.join('')
+			return `${selector}{${ruleString}}`
+		})
+		.join('')
+}
+
 // TODO: I think we should use a CSS-in-JS library for this? This way, I can do things like:
 // blockquote: {p: {color: '...'}}
 
@@ -30,6 +47,7 @@ export const applyTheme = (theme: EpubTheme, preferences: BookPreferences) => {
 	const fontStyles = {
 		...(fontFamily ? { 'font-family': fontFamily } : {}),
 		...(preferences.lineHeight ? { 'line-height': `${preferences.lineHeight}` } : {}),
+		...(preferences.fontSize ? { 'font-size': `${preferences.fontSize}px` } : {}),
 	}
 
 	return {

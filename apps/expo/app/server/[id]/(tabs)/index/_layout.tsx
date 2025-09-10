@@ -11,7 +11,7 @@ export default function Layout() {
 			<Stack.Screen
 				name="index"
 				options={{
-					headerShown: true,
+					headerShown: false,
 					headerTitle: 'Home',
 					headerTransparent: Platform.OS === 'ios',
 					headerLargeTitleStyle: {

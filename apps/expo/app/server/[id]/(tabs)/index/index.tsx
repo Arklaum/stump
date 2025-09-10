@@ -1,14 +1,55 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
-import { View } from 'react-native'
-import { ScrollView } from 'react-native-gesture-handler'
+import { Easing, View } from 'react-native'
+import { easeGradient } from 'react-native-easing-gradient'
+import LinearGradient from 'react-native-linear-gradient'
+import Animated, {
+	useAnimatedScrollHandler,
+	useAnimatedStyle,
+	useSharedValue,
+	withTiming,
+} from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ContinueReading, OnDeck, RecentlyAddedBooks } from '~/components/activeServer/home'
 import RecentlyAddedSeriesHorizontal from '~/components/activeServer/home/RecentlyAddedSeriesHorizontal'
 import RefreshControl from '~/components/RefreshControl'
+import { Heading } from '~/components/ui'
+import { useColors } from '~/lib/constants'
 
 export default function Screen() {
 	const [refreshing, setRefreshing] = useState(false)
+
+	const insets = useSafeAreaInsets()
+	const isAtTop = useSharedValue(true)
+	const colors = useColors()
+	const { colors: gradientColors, locations: gradientLocations } = easeGradient({
+		colorStops: {
+			0: { color: colors.header.start },
+			1: { color: colors.header.end },
+		},
+		extraColorStopsPerTransition: 16,
+		easing: Easing.bezier(0.55, 0, 0.4, 1), // https://cubic-bezier.com/#.55,0,.4,1 e.g. dark mode: stay dark, transition smoothly, then stay transparent
+	})
+
+	const scrollHandler = useAnimatedScrollHandler({
+		onScroll: (event) => {
+			const offset = event.contentOffset.y
+			const headingBoundary = -insets.top + 8
+
+			if (offset > headingBoundary && isAtTop.value) {
+				isAtTop.value = false
+			} else if (offset <= headingBoundary && !isAtTop.value) {
+				isAtTop.value = true
+			}
+		},
+	})
+
+	const headerStyle = useAnimatedStyle(() => {
+		return {
+			opacity: withTiming(isAtTop.value ? 1 : 0, { duration: 300 }),
+		}
+	})
 
 	const client = useQueryClient()
 	const onRefresh = useCallback(async () => {
@@ -23,17 +64,40 @@ export default function Screen() {
 	}, [client])
 
 	return (
-		<ScrollView
-			className="flex-1 bg-background"
-			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-			contentInsetAdjustmentBehavior="always"
-		>
-			<View className="flex flex-1 gap-8 pb-8 pt-4">
-				<ContinueReading />
-				<OnDeck />
-				<RecentlyAddedSeriesHorizontal />
-				<RecentlyAddedBooks />
-			</View>
-		</ScrollView>
+		<View className="flex-1 bg-background">
+			<LinearGradient
+				colors={gradientColors}
+				locations={gradientLocations}
+				style={{
+					position: 'absolute',
+					top: 0,
+					left: 0,
+					right: 0,
+					height: insets.top * 2,
+					zIndex: 5,
+				}}
+				pointerEvents="none"
+			/>
+			<Animated.View style={[headerStyle, { position: 'absolute', top: 0, zIndex: 10 }]}>
+				<Heading style={{ fontSize: 36, paddingLeft: 16, paddingTop: insets.top + 20 }}>
+					Home
+				</Heading>
+			</Animated.View>
+
+			<Animated.ScrollView
+				onScroll={scrollHandler}
+				scrollEventThrottle={16}
+				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+				contentInsetAdjustmentBehavior="always"
+				scrollIndicatorInsets={{ top: insets.top }}
+			>
+				<View className="flex flex-1 gap-8 pb-8 pt-20">
+					<ContinueReading />
+					<OnDeck />
+					<RecentlyAddedSeriesHorizontal />
+					<RecentlyAddedBooks />
+				</View>
+			</Animated.ScrollView>
+		</View>
 	)
 }

@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
-import { Easing, View } from 'react-native'
+import { Easing, Platform, View } from 'react-native'
 import { easeGradient } from 'react-native-easing-gradient'
 import LinearGradient from 'react-native-linear-gradient'
 import Animated, {
@@ -35,7 +35,7 @@ export default function Screen() {
 	const scrollHandler = useAnimatedScrollHandler({
 		onScroll: (event) => {
 			const offset = event.contentOffset.y
-			const headingBoundary = -insets.top + 8
+			const headingBoundary = (Platform.OS === 'ios' ? -insets.top : 0) + 2
 
 			if (offset > headingBoundary && isAtTop.value) {
 				isAtTop.value = false
@@ -73,13 +73,22 @@ export default function Screen() {
 					top: 0,
 					left: 0,
 					right: 0,
-					height: insets.top * 2,
+					height: insets.top + 30,
 					zIndex: 5,
 				}}
 				pointerEvents="none"
 			/>
-			<Animated.View style={[headerStyle, { position: 'absolute', top: 0, zIndex: 10 }]}>
-				<Heading style={{ fontSize: 36, paddingLeft: 16, paddingTop: insets.top + 20 }}>
+			<Animated.View style={[headerStyle, { position: 'absolute', zIndex: 10 }]}>
+				<Heading
+					style={{
+						fontSize: 36,
+						paddingLeft: 16,
+						// Without any top padding:
+						// On Android: top of text starts at top of screen
+						// On iOS: top of text starts 8 pixels higher than top of screen
+						paddingTop: insets.top + 10 + (Platform.OS === 'ios' ? 8 : 0),
+					}}
+				>
 					Home
 				</Heading>
 			</Animated.View>
@@ -91,7 +100,10 @@ export default function Screen() {
 				contentInsetAdjustmentBehavior="always"
 				scrollIndicatorInsets={{ top: insets.top }}
 			>
-				<View className="flex flex-1 gap-8 pb-8 pt-20">
+				<View
+					className="flex flex-1 gap-8 pb-8"
+					style={{ paddingTop: (Platform.OS === 'ios' ? 0 : insets.top) + 56 }}
+				>
 					<ContinueReading />
 					<OnDeck />
 					<RecentlyAddedSeriesHorizontal />

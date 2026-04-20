@@ -466,78 +466,54 @@ impl MediaQuery {
 				DatabaseBackend::Sqlite,
 				r#"
 				WITH 
-				-- Find all series where the user has read at least one book
-				user_read_series AS (
-					SELECT DISTINCT m.series_id 
+				-- We do not want to return any books from series with active reading sessions
+				active_series AS (
+					SELECT m.series_id 
 					FROM media m
-					JOIN finished_reading_sessions frs ON frs.media_id = m.id
-					WHERE frs.user_id = ?
+					JOIN reading_sessions rs ON rs.media_id = m.id
+					WHERE rs.user_id = ?
 					AND m.series_id IS NOT NULL
 				),
 
-				-- Find all media IDs that user has read or is currently reading
-				user_read_or_reading_media AS (
-					SELECT media_id 
-					FROM finished_reading_sessions
-					WHERE user_id = ?
-					
-					UNION
-					
-					SELECT media_id 
-					FROM reading_sessions
-					WHERE user_id = ?
-				),
-
-				-- For each series, get last read date for sorting priority
-				series_last_read AS (
+				-- Find the last finished book per series, excluding series with active reading sessions
+				last_finished_books AS (
 					SELECT 
 						m.series_id,
-						MAX(frs.completed_at) as last_read_date
+						m.name as media_name,
+						MAX(frs.completed_at) as completed_at
 					FROM finished_reading_sessions frs
 					JOIN media m ON m.id = frs.media_id
 					WHERE frs.user_id = ?
-					AND m.series_id IN (SELECT series_id FROM user_read_series)
+						AND m.series_id IS NOT NULL
+						AND NOT EXISTS (SELECT 1 FROM active_series a WHERE a.series_id = m.series_id)
 					GROUP BY m.series_id
 				),
 
-				-- Find the first unread book for each series
-				next_in_series AS (
+				-- Find the book that follows the last finished one (by name)
+				on_deck_candidates AS (
 					SELECT 
-						m.id, 
-						m.name,
-						m.series_id,
-						ROW_NUMBER() OVER(
-							PARTITION BY m.series_id 
-							ORDER BY m.name
-						) as book_rank,
-						COALESCE(srl.last_read_date, '1970-01-01') as series_last_read_date
-					FROM 
-						media m
-					LEFT JOIN
-						series_last_read srl ON srl.series_id = m.series_id
-					WHERE 
-						m.series_id IN (SELECT series_id FROM user_read_series)
-						-- Exclude media that user has read or is currently reading
-						AND m.id NOT IN (SELECT media_id FROM user_read_or_reading_media)
-						AND m.deleted_at IS NULL
+						(
+							SELECT id
+							FROM media
+							WHERE series_id = lfb.series_id
+								AND deleted_at IS NULL
+								AND name > lfb.media_name
+							ORDER BY name ASC
+							LIMIT 1
+						) as id,
+						lfb.completed_at as prev_book_completed_at
+					FROM last_finished_books lfb
 				)
 
-				-- Get only the first book for each series
-				SELECT 
-					id
-				FROM 
-					next_in_series
-				WHERE 
-					book_rank = 1
-				ORDER BY
-					-- Most recently read series first
-					series_last_read_date DESC
+				-- Return the next books, ordered by how recently the previous one was finished
+				SELECT id
+				FROM on_deck_candidates
+				WHERE id IS NOT NULL
+				ORDER BY prev_book_completed_at DESC
 				LIMIT ?
 				OFFSET ?
 				"#,
 				[
-					user_id.clone().into(),
-					user_id.clone().into(),
 					user_id.clone().into(),
 					user_id.clone().into(),
 					limit.into(),
